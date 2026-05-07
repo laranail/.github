@@ -1,0 +1,17 @@
+version: 2
+
+updates:
+  # Reusable-workflow self-maintenance.
+  - package-ecosystem: github-actions
+    directory: /.github/workflows
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: UTC
+    groups:
+      actions-minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: 'chore(actions)'
+      include: scope

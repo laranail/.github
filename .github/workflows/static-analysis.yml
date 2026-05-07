@@ -1,0 +1,99 @@
+name: Static analysis (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      php-version:
+        description: PHP version to run static analysis under.
+        type: string
+        default: '8.4'
+      php-extensions:
+        type: string
+        default: 'mbstring, xml, ctype, iconv, intl, pdo_sqlite, sqlite3'
+
+jobs:
+  pint:
+    name: Pint (formatting)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ inputs.php-version }}
+          extensions: ${{ inputs.php-extensions }}
+          ini-values: memory_limit=-1
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Pint --test
+        run: vendor/bin/pint --test
+
+  phpstan:
+    name: PHPStan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ inputs.php-version }}
+          extensions: ${{ inputs.php-extensions }}
+          ini-values: memory_limit=-1
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: PHPStan
+        # Explicit `--memory-limit=2G` because PHPStan's parallel workers
+        # inherit php.ini memory_limit and crash at the 128M default on
+        # any non-trivial codebase.
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=2G --error-format=github
+
+  rector:
+    name: Rector (dry-run)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ inputs.php-version }}
+          extensions: ${{ inputs.php-extensions }}
+          ini-values: memory_limit=-1
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Rector --dry-run
+        run: vendor/bin/rector process --dry-run --no-progress-bar --memory-limit=2G
+
+  bash-elimination-gate:
+    name: Bash-elimination gate (ADR-007)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exactly one .sh file
+        run: |
+          set -euo pipefail
+          shells=$(find . -type f -name '*.sh' \
+            -not -path './vendor/*' \
+            -not -path './node_modules/*' \
+            -not -path './.git/*' \
+            -not -path './.venv/*' \
+            -not -path './.artifacts/*')
+          count=$(printf '%s\n' "$shells" | grep -c . || true)
+          echo "Discovered $count .sh file(s):"
+          printf '%s\n' "$shells"
+          if [ "$count" != "1" ]; then
+            echo "::error::ADR-007 violation — expected exactly 1 .sh file (scripts/init.sh), found $count."
+            exit 1
+          fi
+          if [ "$shells" != "./scripts/init.sh" ]; then
+            echo "::error::ADR-007 violation — the single .sh file must be ./scripts/init.sh, found $shells."
+            exit 1
+          fi

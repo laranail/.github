@@ -1,0 +1,61 @@
+name: Security (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      php-version:
+        type: string
+        default: '8.4'
+      php-extensions:
+        type: string
+        default: 'mbstring, xml, ctype, iconv, intl'
+
+jobs:
+  composer-audit:
+    name: composer audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ inputs.php-version }}
+          extensions: ${{ inputs.php-extensions }}
+          tools: composer:v2
+
+      - name: Install dependencies
+        # `composer install` will create composer.lock for libraries that
+        # don't commit one — required by `composer audit --locked`.
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: composer audit
+        run: composer audit --locked --no-dev --abandoned=report --format=plain
+
+  osv-scan:
+    name: OSV.dev scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (generate composer.lock)
+        # OSV-Scanner reads `composer.lock`. Repos in this suite don't
+        # commit lock files (libraries), so generate one before scanning.
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+
+      - name: composer install
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Run OSV-Scanner
+        uses: google/osv-scanner-action/osv-scanner-action@v2.3.5
+        with:
+          # OSV-scanner v2 changed both flags:
+          # - `--skip-git` removed (binary auto-ignores .git/).
+          # - `--lockfile=composer.lock` errors with "could not determine
+          #   extractor"; v2 expects `--recursive` discovery to find the
+          #   lock file via its built-in extractors.
+          scan-args: |-
+            --recursive
+            ./

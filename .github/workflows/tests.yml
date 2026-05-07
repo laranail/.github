@@ -1,0 +1,100 @@
+name: Tests (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      php-versions:
+        description: JSON array of PHP versions to test against.
+        type: string
+        default: '["8.3","8.4"]'
+      laravel-versions:
+        description: JSON array of Laravel constraints.
+        type: string
+        default: '["13.*"]'
+      stabilities:
+        description: JSON array of composer dependency-version preferences.
+        type: string
+        default: '["prefer-lowest","prefer-stable"]'
+      coverage-on:
+        description: 'Matrix leg to upload coverage from. Empty = no upload.'
+        type: string
+        default: 'php=8.4,laravel=13.*,stability=prefer-stable'
+      php-extensions:
+        description: 'PHP extensions to install.'
+        type: string
+        default: 'mbstring, xml, ctype, iconv, intl, pdo_sqlite, sqlite3'
+    secrets:
+      CODECOV_TOKEN:
+        required: false
+
+jobs:
+  pest:
+    name: PHP ${{ matrix.php }} / Laravel ${{ matrix.laravel }} / ${{ matrix.stability }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ${{ fromJson(inputs.php-versions) }}
+        laravel: ${{ fromJson(inputs.laravel-versions) }}
+        stability: ${{ fromJson(inputs.stabilities) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: ${{ inputs.php-extensions }}
+          ini-values: memory_limit=-1
+          coverage: pcov
+          tools: composer:v2
+
+      - name: Resolve composer cache dir
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore composer cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.stability }}-${{ hashFiles('**/composer.json') }}
+          restore-keys: |
+            composer-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.stability }}-
+            composer-${{ matrix.php }}-${{ matrix.laravel }}-
+            composer-${{ matrix.php }}-
+
+      - name: Pin Laravel constraint
+        if: matrix.laravel != '*'
+        run: |
+          composer require --dev --no-update --no-interaction \
+            "illuminate/contracts:${{ matrix.laravel }}"
+
+      - name: Install dependencies (${{ matrix.stability }})
+        run: composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-progress
+
+      - name: Run Pest
+        run: vendor/bin/pest --colors=never
+
+      - name: Determine coverage upload
+        id: coverage-leg
+        run: |
+          want="${{ inputs.coverage-on }}"
+          got="php=${{ matrix.php }},laravel=${{ matrix.laravel }},stability=${{ matrix.stability }}"
+          if [ -n "$want" ] && [ "$want" = "$got" ]; then
+            echo "upload=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "upload=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Pest (with coverage)
+        if: steps.coverage-leg.outputs.upload == 'true'
+        run: vendor/bin/pest --coverage-clover=coverage.xml --colors=never
+        continue-on-error: true
+
+      - name: Upload coverage to Codecov
+        if: steps.coverage-leg.outputs.upload == 'true' && hashFiles('coverage.xml') != ''
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          fail_ci_if_error: false
