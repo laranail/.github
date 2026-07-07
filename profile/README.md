@@ -35,7 +35,7 @@ The scaffolder turns one command into a publish-ready package.
 
 We build every one of our own packages with it, so the family keeps growing:
 console foundations, database utilities, type-safe enums, licensing,
-environment tooling, installers.
+environment tooling, and installers.
 
 ## Start here
 
