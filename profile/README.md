@@ -14,9 +14,9 @@
 <h1 align="center">laranail</h1>
 
 <p align="center">
-  <strong>A family of Laravel packages for building, scaffolding, and shipping
-  your own Laravel packages — and the toolkit that grew around them.</strong><br>
-  Modern PHP. Pure Composer tooling. No surprises.
+  <strong>Build your own Laravel packages without the ceremony.</strong><br>
+  A family of Laravel packages by the team at Simtabi. Modern PHP, pure Composer
+  tooling, no surprises.
 </p>
 
 <p align="center">
@@ -28,24 +28,28 @@
 
 ---
 
-## What is laranail?
+## Why laranail exists
 
-laranail is the package-development layer we use to build every Laravel package we
-ship: a fluent package builder in the tradition of `spatie/laravel-package-tools`,
-extended with attribute-driven discovery, a health-check command, SBOM and OSV.dev
-audit tooling, and a scaffolder that generates publish-ready packages. Around that
-core sits a growing toolkit — console foundations, database utilities, enums,
-licensing, environment tooling, installers, and more.
+Every Laravel package starts with the same hour of ceremony: a service provider,
+config publishing, migrations, command registration. laranail removes that hour.
+`package-tools` gives you a fluent package builder in the tradition of
+`spatie/laravel-package-tools`, then goes further — attribute-driven discovery,
+a built-in health check, SBOM generation, and dependency audits against OSV.dev.
+The scaffolder turns one command into a publish-ready package.
+
+We build every one of our own packages with it, so the family keeps growing:
+console foundations, database utilities, type-safe enums, licensing,
+environment tooling, installers.
 
 ## Start here
 
 | Package | What it does |
 | --- | --- |
-| [`package-tools`](https://github.com/laranail/package-tools) | Runtime base library — fluent `Package` builder, attribute discovery, and doctor/sbom/audit/ide-helper commands |
-| [`package-scaffolder`](https://github.com/laranail/package-scaffolder) | Artisan command suite and stubs for scaffolding new Laravel packages |
-| [`toolkit`](https://github.com/laranail/toolkit) | Security-first Swiss-army toolkit — utilities, traits, middleware, macros, feature modules |
-| [`console`](https://github.com/laranail/console) | Rich console toolkit — fluent output plus a prompts/forms layer with validators |
-| [`database-tools`](https://github.com/laranail/database-tools) | Standalone database utilities — UUID/ULID traits, schema macros, soft-archive, backup/restore |
+| [`package-tools`](https://github.com/laranail/package-tools) | The runtime base — fluent `Package` builder, attribute discovery, and doctor/sbom/audit/ide-helper commands |
+| [`package-scaffolder`](https://github.com/laranail/package-scaffolder) | Artisan commands and stubs that scaffold a new package in one step |
+| [`toolkit`](https://github.com/laranail/toolkit) | A security-first Swiss-army toolkit — utilities, traits, middleware, macros, feature modules |
+| [`console`](https://github.com/laranail/console) | Rich console output plus a prompts-and-forms layer with validators |
+| [`database-tools`](https://github.com/laranail/database-tools) | Standalone database utilities — UUID/ULID traits, schema macros, soft-archive, backup and restore |
 
 Beyond the core: licensing ([`license-kit`](https://github.com/laranail/license-kit),
 [`license-verifier`](https://github.com/laranail/license-verifier),
@@ -53,8 +57,8 @@ Beyond the core: licensing ([`license-kit`](https://github.com/laranail/license-
 [`product-updater`](https://github.com/laranail/product-updater)), environment
 tooling ([`env-kit`](https://github.com/laranail/env-kit)), installers
 ([`installer-headless`](https://github.com/laranail/installer-headless),
-[`installer-web`](https://github.com/laranail/installer-web)), and type-safe enums
-([`enumerator`](https://github.com/laranail/enumerator)). Browse
+[`installer-web`](https://github.com/laranail/installer-web)), and type-safe
+enums ([`enumerator`](https://github.com/laranail/enumerator)). Browse
 [all repositories](https://github.com/orgs/laranail/repositories) for the full
 family.
 
@@ -68,23 +72,25 @@ php artisan packager:generate vendor widget
 php artisan laranail::package-tools.doctor
 ```
 
-Documentation lives at [opensource.simtabi.com](https://opensource.simtabi.com)
-and in each repository's `docs/` directory.
+A minute from install to a scaffolded, health-checked package. Documentation
+lives at [opensource.simtabi.com](https://opensource.simtabi.com) and in each
+repository's `docs/` directory.
 
-## Where to get help
+## Need a hand?
 
-- Questions and ideas: open an issue on the relevant package repository.
-- Documentation fixes: pull requests welcome on any repository's `docs/` tree.
-- Security: see each repository's `SECURITY.md` — please report privately, never
-  via public issues.
+- Questions and ideas: open an issue on the package's repository.
+- Docs are never finished: pull requests welcome on any repository's `docs/`
+  tree.
+- Security: see the repository's `SECURITY.md` and report privately, never via
+  public issues.
 
 ## About Simtabi
 
-laranail is maintained by the team at [Simtabi](https://simtabi.com), a software
-design agency and design & branding studio based in Delaware, USA and Nairobi,
-Kenya. Whenever we build something reusable, we extract it and release it as open
-source — you'll find all of our projects at
+laranail is built and maintained by the team at [Simtabi](https://simtabi.com),
+a software design agency and design & branding studio working from Delaware,
+USA and Nairobi, Kenya. Whenever we build something reusable, we share it —
+you'll find everything at
 [opensource.simtabi.com](https://opensource.simtabi.com).
 
-All laranail packages are open-sourced software licensed under the
+All laranail packages are open-source software licensed under the
 [MIT license](https://github.com/laranail/package-tools/blob/main/LICENSE).
