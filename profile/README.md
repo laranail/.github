@@ -88,8 +88,8 @@ repository's `docs/` directory.
 
 laranail is built and maintained by the team at [Simtabi](https://simtabi.com),
 a software design agency and design & branding studio operating across New
-York, Delaware, and North Carolina, USA, with an office in Nairobi, Kenya.
-Whenever we build something reusable, we share it —
+York, Delaware, and North Carolina, USA. Whenever we build something reusable,
+we share it —
 you'll find everything at
 [opensource.simtabi.com](https://opensource.simtabi.com).
 
