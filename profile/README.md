@@ -1,6 +1,3 @@
-<!-- Banner slot: add the <picture> block here when profile/banner-{light,dark}.svg
-     land, per /opensource/simtabi-brand-design-standard.md (Crimson #D7263D):
-
 <div align="center">
   <a href="https://opensource.simtabi.com">
     <picture>
@@ -9,7 +6,6 @@
     </picture>
   </a>
 </div>
--->
 
 <h1 align="center">laranail</h1>
 
