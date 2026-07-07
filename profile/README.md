@@ -75,8 +75,8 @@ repository's `docs/` directory.
 ## Need a hand?
 
 - Questions and ideas: open an issue on the package's repository.
-- Docs are never finished: pull requests welcome on any repository's `docs/`
-  tree.
+- Docs are never finished — pull requests are welcome on any repository's
+  `docs/` tree.
 - Security: see the repository's `SECURITY.md` and report privately, never via
   public issues.
 
