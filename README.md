@@ -1,28 +1,17 @@
-# laranail (GitHub organization)
+# laranail/.github
 
-A family of Laravel packages — runtime tooling for package authors.
+> Organization-wide community health files, the org profile, and reusable GitHub
+> Actions workflows for the [laranail](https://github.com/laranail) organization.
 
-## Packages
+`profile/README.md` renders at [github.com/laranail](https://github.com/laranail)
+and is the canonical org index — this file deliberately duplicates none of it.
+The default `SECURITY.md`, `SUPPORT.md`, `CONTRIBUTING.md`, and
+`CODE_OF_CONDUCT.md` here apply to every laranail repository lacking its own copy.
 
-| Repo | Description |
-|---|---|
-| [`laranail/laranail`](https://github.com/laranail/laranail) | Utility toolbox (Gravatar, Captcha, Avatar, Archiver, Notifications). |
-| [`laranail/package-tools`](https://github.com/laranail/package-tools) | Runtime base library — `Package` builder + abstract `PackageServiceProvider` with attribute-driven discovery. |
-| [`laranail/package-scaffolder`](https://github.com/laranail/package-scaffolder) | Generator — Artisan commands + stubs to scaffold new packages. |
-| [`laranail/database-tools`](https://github.com/laranail/database-tools) | Independent Laravel DB utilities (model traits, schema macros, observers). |
+## Reusable workflows
 
-## Targets
-
-PHP `^8.3 || ^8.4`. Laravel `^13.0`. Pest `^3.0`. Testbench `^10.0`.
-
-## Documentation
-
-- Primary: [`laranail.simtabi.com/docs/`](https://laranail.simtabi.com/docs/)
-- Portal: [`opensource.simtabi.com/laranail/`](https://opensource.simtabi.com/laranail/)
-
-## This `.github` repo
-
-This is the organization profile + reusable workflow repo. The `.github/workflows/` directory holds **reusable GitHub Actions workflows** (`tests.yml`, `security.yml`, `static-analysis.yml`, `release.yml`) that every package's CI calls via:
+`.github/workflows/` holds the reusable CI workflows (`tests.yml`,
+`static-analysis.yml`, `security.yml`, `release.yml`) that every package calls:
 
 ```yaml
 jobs:
@@ -33,8 +22,6 @@ jobs:
       laravel-versions: '["13.*"]'
 ```
 
-Phase 13 of the suite cleanup populates this directory.
-
 ## License
 
-MIT. See each repo's `LICENSE.md`.
+MIT — see each repository's license file.
