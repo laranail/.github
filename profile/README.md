@@ -45,7 +45,7 @@ environment tooling, and installers.
 | [`package-scaffolder`](https://github.com/laranail/package-scaffolder) | Artisan commands and stubs that scaffold a new package in one step |
 | [`toolkit`](https://github.com/laranail/toolkit) | A security-first Swiss-army toolkit — utilities, traits, middleware, macros, feature modules |
 | [`console`](https://github.com/laranail/console) | Rich console output plus a prompts-and-forms layer with validators |
-| [`database-tools`](https://github.com/laranail/database-tools) | Standalone database utilities — UUID/ULID traits, schema macros, soft-archive, backup and restore |
+| [`db-tools`](https://github.com/laranail/db-tools) | Standalone database utilities — UUID/ULID traits, schema macros, soft-archive, backup and restore |
 
 Beyond the core: licensing ([`license-kit`](https://github.com/laranail/license-kit),
 [`license-verifier`](https://github.com/laranail/license-verifier),
