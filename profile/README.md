@@ -47,7 +47,10 @@ environment tooling, and installers.
 | [`console`](https://github.com/laranail/console) | Rich console output plus a prompts-and-forms layer with validators |
 | [`db-tools`](https://github.com/laranail/db-tools) | Standalone database utilities — UUID/ULID traits, schema macros, soft-archive, backup and restore |
 
-Beyond the core: licensing ([`license-kit`](https://github.com/laranail/license-kit),
+Beyond the core: database administration
+([`db-console`](https://github.com/laranail/db-console) and its
+[`db-console-webui`](https://github.com/laranail/db-console-webui)), licensing
+([`license-kit`](https://github.com/laranail/license-kit),
 [`license-verifier`](https://github.com/laranail/license-verifier),
 [`demo-mode`](https://github.com/laranail/demo-mode),
 [`product-updater`](https://github.com/laranail/product-updater)), environment
