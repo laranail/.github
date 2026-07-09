@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://opensource.simtabi.com"><img alt="Documentation" src="https://img.shields.io/badge/docs-opensource.simtabi.com-D7263D?style=flat-square"></a>
+  <a href="https://opensource.simtabi.com/documentation/laranail/"><img alt="Documentation" src="https://img.shields.io/badge/docs-opensource.simtabi.com-D7263D?style=flat-square"></a>
   <a href="https://github.com/laranail/package-tools/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-D7263D?style=flat-square"></a>
   <img alt="PHP" src="https://img.shields.io/badge/PHP-8.3%2B-777BB4?style=flat-square&logo=php&logoColor=white">
   <img alt="Laravel" src="https://img.shields.io/badge/Laravel-13.x-FF2D20?style=flat-square&logo=laravel&logoColor=white">
@@ -72,7 +72,7 @@ php artisan laranail::package-tools.doctor
 ```
 
 A minute from install to a scaffolded, health-checked package. Documentation
-lives at [opensource.simtabi.com](https://opensource.simtabi.com) and in each
+lives at [opensource.simtabi.com/documentation/laranail](https://opensource.simtabi.com/documentation/laranail/) and in each
 repository's `docs/` directory.
 
 ## Need a hand?
