@@ -15,10 +15,11 @@ jobs:
   pint:
     name: Pint (formatting)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: shivammathur/setup-php@v2
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.php-extensions }}
@@ -34,10 +35,11 @@ jobs:
   phpstan:
     name: PHPStan
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: shivammathur/setup-php@v2
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.php-extensions }}
@@ -56,10 +58,11 @@ jobs:
   rector:
     name: Rector (dry-run)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: shivammathur/setup-php@v2
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.php-extensions }}
@@ -75,8 +78,9 @@ jobs:
   bash-elimination-gate:
     name: Bash-elimination gate (ADR-007)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Verify exactly one .sh file
         run: |
           set -euo pipefail

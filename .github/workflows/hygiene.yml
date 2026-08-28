@@ -1,0 +1,86 @@
+name: Hygiene (reusable)
+
+# Release hygiene for every laranail package, from one place.
+#
+# Both checks used to live as scripts pasted into each repository:
+# `verify-tag-currency.sh` had 37 copies (34 byte-identical) and
+# `verify-action-pins.py` had 15 (all identical). The checks themselves stay in
+# `laranail/package-tools`, which is their home; this workflow checks that
+# repository out beside the caller and runs them against the caller.
+#
+# Deliberately no `composer install`. These are repository hygiene checks, not
+# package tests -- they need `gh` and a token, both of which every runner
+# already has. Requiring an install here would add a dependency, a bootstrap
+# problem for package-tools checking itself, and minutes to 37 repositories.
+
+on:
+  workflow_call:
+    inputs:
+      checks-ref:
+        description: Ref of laranail/package-tools to take the checks from.
+        type: string
+        default: main
+      run-action-pins:
+        description: Verify every SHA-pinned action is honest and current.
+        type: boolean
+        default: true
+      run-tag-currency:
+        description: Verify the moving tag is on the default branch.
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  action-pins:
+    name: Action pins
+    if: inputs.run-action-pins
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out the calling repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: repo
+          persist-credentials: false
+
+      - name: Check out the shared checks
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: laranail/package-tools
+          ref: ${{ inputs.checks-ref }}
+          path: checks
+          persist-credentials: false
+
+      # The path argument is what makes this shareable. Without it the script
+      # resolves its target from its own __file__ and would check the pins of
+      # package-tools rather than of the caller -- silently passing.
+      - name: Verify every pin is honest and current
+        run: python3 checks/scripts/verify-action-pins.py "${GITHUB_WORKSPACE}/repo"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  tag-currency:
+    name: Release currency
+    if: inputs.run-tag-currency
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # No checkout of the caller: this check is entirely `gh api`-driven and
+      # reads the tags, the default branch and composer.json over the API, so it
+      # needs neither the working tree nor any particular fetch depth.
+      - name: Check out the shared checks
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: laranail/package-tools
+          ref: ${{ inputs.checks-ref }}
+          path: checks
+          persist-credentials: false
+
+      - name: Verify the moving tag is on the default branch
+        run: bash checks/scripts/verify-tag-currency.sh "${{ github.repository }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
