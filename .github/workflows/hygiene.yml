@@ -28,6 +28,14 @@ on:
         description: Verify the moving tag is on the default branch.
         type: boolean
         default: true
+      run-dist-integrity:
+        description: Verify every path composer.json references survives the archive.
+        type: boolean
+        default: true
+      php-version:
+        description: PHP version for the dist-integrity check.
+        type: string
+        default: '8.4'
 
 permissions:
   contents: read
@@ -84,3 +92,37 @@ jobs:
         run: bash checks/scripts/verify-tag-currency.sh "${{ github.repository }}"
         env:
           GH_TOKEN: ${{ github.token }}
+
+  dist-integrity:
+    name: Dist integrity
+    if: inputs.run-dist-integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out the calling repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: repo
+          persist-credentials: false
+
+      - name: Check out the shared checks
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: laranail/package-tools
+          ref: ${{ inputs.checks-ref }}
+          path: checks
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: ${{ inputs.php-version }}
+          coverage: none
+
+      # The binary takes the repository root from getcwd(), so it is run from
+      # inside the caller's checkout. It autoloads its own sources directly when
+      # no vendor/ is present, which is why this needs no composer install.
+      - name: Every referenced path survives the archive
+        working-directory: repo
+        run: php ../checks/bin/laranail-dist-integrity
