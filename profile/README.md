@@ -1,5 +1,5 @@
 <div align="center">
-  <a href="https://opensource.simtabi.com">
+  <a href="https://simtabi.com">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="banner-dark.svg">
       <img alt="laranail — a family of Laravel packages by Simtabi" src="banner-light.svg" width="888">
@@ -16,7 +16,6 @@
 </p>
 
 <p align="center">
-  <a href="https://opensource.simtabi.com/documentation/laranail/"><img alt="Documentation" src="https://img.shields.io/badge/docs-opensource.simtabi.com-D7263D?style=flat-square"></a>
   <a href="https://github.com/laranail/package-tools/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-D7263D?style=flat-square"></a>
   <img alt="PHP" src="https://img.shields.io/badge/PHP-8.3%2B-777BB4?style=flat-square&logo=php&logoColor=white">
   <img alt="Laravel" src="https://img.shields.io/badge/Laravel-13.x-FF2D20?style=flat-square&logo=laravel&logoColor=white">
@@ -72,8 +71,8 @@ php artisan laranail::package-tools.doctor
 ```
 
 A minute from install to a scaffolded, health-checked package. Documentation
-lives at [opensource.simtabi.com/documentation/laranail](https://opensource.simtabi.com/documentation/laranail/) and in each
-repository's `docs/` directory.
+lives in each repository's `docs/` directory — start with
+[`package-tools/docs`](https://github.com/laranail/package-tools/tree/main/docs).
 
 ## Need a hand?
 
@@ -88,9 +87,9 @@ repository's `docs/` directory.
 laranail is built and maintained by the team at [Simtabi](https://simtabi.com),
 a software design agency and design & branding studio operating across New
 York, Delaware, and North Carolina, USA. Whenever we build something reusable,
-we share it —
-you'll find everything at
-[opensource.simtabi.com](https://opensource.simtabi.com).
+we share it — you'll find it
+across [@laranail](https://github.com/laranail) and
+[@simtabi](https://github.com/simtabi).
 
 All laranail packages are open-source software licensed under the
 [MIT license](https://github.com/laranail/package-tools/blob/main/LICENSE).
