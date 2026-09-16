@@ -72,7 +72,12 @@ jobs:
 
   tag-currency:
     name: Release currency
-    if: inputs.run-tag-currency
+    # Never on a pull request. This asks whether the moving v0.1.0 tag points at
+    # the default branch, and a PR that adds commits cannot satisfy that -- the
+    # tag can only move AFTER the branch lands. Running it here made every PR
+    # that touches .github/workflows/** fail a check it could not pass, which is
+    # noise that teaches people to ignore a red hygiene run.
+    if: inputs.run-tag-currency && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
