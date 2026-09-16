@@ -94,7 +94,13 @@ jobs:
           php-version: ${{ matrix.php }}
           extensions: ${{ inputs.php-extensions }}
           ini-values: memory_limit=-1
-          coverage: ${{ inputs.coverage-on != '' && 'pcov' || 'none' }}
+          # pcov unconditionally, even when nothing uploads the report. Most
+          # phpunit.xml in this family set failOnWarning="true" AND configure
+          # <coverage><report>, so PHPUnit asks for a driver, finds none, warns --
+          # and the warning is promoted to a failure. The suite then exits 1 having
+          # run no tests. Installing the extension is cheap; the collection cost is
+          # only paid when a report is actually requested.
+          coverage: pcov
           tools: composer:v2
 
       - name: Resolve composer cache dir
