@@ -1,5 +1,26 @@
 name: Tests (reusable)
 
+# Install at: laranail/.github  ->  .github/workflows/tests.yml
+#
+# Changes from the version dated 2026-08-28, each of which a caller cannot work
+# around on its own:
+#
+#   1. `laravel-versions` defaults to ["*"], which pins nothing. The old default
+#      ran `composer require illuminate/contracts:13.*`, and `--no-update` EDITS
+#      composer.json -- verified: `^13.0` becomes `13.*` -- so every caller
+#      tested a manifest it does not ship. `--dev` also ADDED illuminate/contracts
+#      to require-dev for packages that required laravel/framework instead.
+#   2. laranail/* dist archives are dropped before installing. Those resolve
+#      through a single MOVING v0.1.0 tag, so composer's cache is keyed on a name
+#      whose contents change underneath it; a restored archive is silently stale
+#      and the install still reports success. Without this, adopting this
+#      workflow would reintroduce a bug this org has already been bitten by.
+#   3. Pest runs exactly once. The plain run fired on every leg and the coverage
+#      leg then ran the whole suite a SECOND time, with continue-on-error
+#      swallowing any failure in that second run.
+#   4. New `os` and `test-command` inputs, so packages with a Windows leg or a
+#      coverage threshold can adopt this instead of staying hand-rolled.
+
 on:
   workflow_call:
     inputs:
@@ -7,18 +28,42 @@ on:
         description: JSON array of PHP versions to test against.
         type: string
         default: '["8.4","8.5"]'
-      laravel-versions:
-        description: JSON array of Laravel constraints.
+      os:
+        description: JSON array of runner labels.
         type: string
-        default: '["13.*"]'
+        default: '["ubuntu-latest"]'
+      laravel-versions:
+        description: >
+          JSON array of Laravel constraints. The default '["*"]' means "resolve
+          whatever composer.json allows" and pins nothing -- which is what you
+          want almost always, because the constraint under test is then the one
+          the package actually ships. Pass explicit constraints ONLY to fan out
+          across several Laravel majors on purpose; each one rewrites
+          composer.json before the suite runs.
+        type: string
+        default: '["*"]'
       stabilities:
-        description: JSON array of composer dependency-version preferences.
+        description: >
+          JSON array of composer dependency-version preferences. prefer-lowest is
+          what actually installs the floor composer.json declares; without it a
+          wrong floor can ship for months.
         type: string
         default: '["prefer-lowest","prefer-stable"]'
-      coverage-on:
-        description: 'Matrix leg to upload coverage from. Empty = no upload.'
+      test-command:
+        description: 'Command that runs the suite.'
         type: string
-        default: 'php=8.4,laravel=13.*,stability=prefer-stable'
+        default: 'vendor/bin/pest --colors=never'
+      timeout-minutes:
+        description: 'Per-job timeout.'
+        type: number
+        default: 15
+      coverage-on:
+        description: >
+          Matrix leg to upload coverage from, as php=..,laravel=..,stability=..
+          Empty = no upload. Must name the laravel value actually in the matrix,
+          which is `*` unless you passed laravel-versions.
+        type: string
+        default: ''
       php-extensions:
         description: 'PHP extensions to install.'
         type: string
@@ -29,12 +74,14 @@ on:
 
 jobs:
   pest:
-    name: PHP ${{ matrix.php }} / Laravel ${{ matrix.laravel }} / ${{ matrix.stability }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    name: PHP ${{ matrix.php }} · ${{ matrix.stability }}${{ matrix.os != 'ubuntu-latest' && format(' · {0}', matrix.os) || '' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
     strategy:
+      # One cell failing must not cancel the others; which cells fail is the signal.
       fail-fast: false
       matrix:
+        os: ${{ fromJson(inputs.os) }}
         php: ${{ fromJson(inputs.php-versions) }}
         laravel: ${{ fromJson(inputs.laravel-versions) }}
         stability: ${{ fromJson(inputs.stabilities) }}
@@ -47,37 +94,57 @@ jobs:
           php-version: ${{ matrix.php }}
           extensions: ${{ inputs.php-extensions }}
           ini-values: memory_limit=-1
-          coverage: pcov
+          coverage: ${{ inputs.coverage-on != '' && 'pcov' || 'none' }}
           tools: composer:v2
 
       - name: Resolve composer cache dir
         id: composer-cache
+        shell: bash
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - name: Restore composer cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.stability }}-${{ hashFiles('**/composer.json') }}
+          key: composer-${{ matrix.os }}-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.stability }}-${{ hashFiles('**/composer.json') }}
           restore-keys: |
-            composer-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.stability }}-
-            composer-${{ matrix.php }}-${{ matrix.laravel }}-
-            composer-${{ matrix.php }}-
+            composer-${{ matrix.os }}-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.stability }}-
+            composer-${{ matrix.os }}-${{ matrix.php }}-${{ matrix.laravel }}-
+            composer-${{ matrix.os }}-${{ matrix.php }}-
 
-      - name: Pin Laravel constraint
+      - name: Drop cached laranail archives
+        # laranail/* resolve through a single MOVING v0.1.0 tag, so composer's
+        # dist cache is keyed on a name whose contents change underneath it. A
+        # restored archive is then silently stale: the install reports success
+        # and unpacks whatever was cached the first time. Everything else is
+        # immutable per version and stays cached.
+        # POSIX command via bash: Windows runners default to PowerShell, where
+        # this would be a parse error rather than a no-op.
+        shell: bash
+        run: rm -rf "$(composer config cache-files-dir)/laranail"
+
+      # Runs only when a caller deliberately asked for a specific Laravel major.
+      # It EDITS composer.json, so the suite then tests a manifest the package
+      # does not ship -- acceptable when fanning out across majors on purpose,
+      # never as a default.
+      - name: Pin Laravel constraint (explicitly requested)
         if: matrix.laravel != '*'
+        shell: bash
         run: |
           composer require --dev --no-update --no-interaction \
             "illuminate/contracts:${{ matrix.laravel }}"
 
       - name: Install dependencies (${{ matrix.stability }})
-        run: composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-progress
-
-      - name: Run Pest
-        run: vendor/bin/pest --colors=never
+        shell: bash
+        # --prefer-stable alongside --prefer-lowest on purpose: bare
+        # --prefer-lowest resolves the lowest UNSTABLE release of every
+        # dependency, which fails for reasons unrelated to this package.
+        # Composer accepts the flag twice, so no branch is needed.
+        run: composer update --${{ matrix.stability }} --prefer-stable --prefer-dist --no-interaction --no-progress
 
       - name: Determine coverage upload
         id: coverage-leg
+        shell: bash
         run: |
           want="${{ inputs.coverage-on }}"
           got="php=${{ matrix.php }},laravel=${{ matrix.laravel }},stability=${{ matrix.stability }}"
@@ -87,10 +154,16 @@ jobs:
             echo "upload=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Run Pest (with coverage)
+      # Exactly one of these runs.
+      - name: Run tests
+        if: steps.coverage-leg.outputs.upload != 'true'
+        shell: bash
+        run: ${{ inputs.test-command }}
+
+      - name: Run tests (with coverage)
         if: steps.coverage-leg.outputs.upload == 'true'
-        run: vendor/bin/pest --coverage-clover=coverage.xml --colors=never
-        continue-on-error: true
+        shell: bash
+        run: ${{ inputs.test-command }} --coverage-clover=coverage.xml
 
       - name: Upload coverage to Codecov
         if: steps.coverage-leg.outputs.upload == 'true' && hashFiles('coverage.xml') != ''
