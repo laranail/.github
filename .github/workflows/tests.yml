@@ -71,6 +71,15 @@ on:
     secrets:
       CODECOV_TOKEN:
         required: false
+      COMPOSER_AUTH_TOKEN:
+        required: false
+        description: >
+          Token with read access to any PRIVATE laranail repository this package
+          resolves through a `vcs` repository. GITHUB_TOKEN cannot do it: it is
+          scoped to the repository the workflow runs in, so a sibling private
+          package fails with "Invalid username or token" against a token that is
+          present and valid for everything else. Omit it and the install falls
+          back to GITHUB_TOKEN, which is correct for every public-only package.
 
 jobs:
   pest:
@@ -142,6 +151,10 @@ jobs:
 
       - name: Install dependencies (${{ matrix.stability }})
         shell: bash
+        env:
+          # Only consulted for a repository composer must clone. The fallback
+          # keeps every public-only package resolving exactly as before.
+          COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ secrets.COMPOSER_AUTH_TOKEN || secrets.GITHUB_TOKEN }}"}}'
         # --prefer-stable alongside --prefer-lowest on purpose: bare
         # --prefer-lowest resolves the lowest UNSTABLE release of every
         # dependency, which fails for reasons unrelated to this package.
