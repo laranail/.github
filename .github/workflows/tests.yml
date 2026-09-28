@@ -68,9 +68,29 @@ on:
         description: 'PHP extensions to install.'
         type: string
         default: 'mbstring, xml, ctype, iconv, intl, pdo_sqlite, sqlite3'
+      private-dep-owner:
+        description: >
+          Set this when the package resolves a PRIVATE repository through a `vcs`
+          entry, to the owner that holds it (e.g. `simtabi`). The job then mints a
+          per-run app installation token for that owner and gives it to composer.
+          Leave it unset for a public-only package: nothing changes.
+
+          One token covers one owner, because an installation token is per
+          installation. A package with private dependencies in two orgs needs a
+          different approach and will fail loudly here rather than half-resolve.
+        type: string
+        default: ''
     secrets:
       CODECOV_TOKEN:
         required: false
+      REFRESH_APP_PRIVATE_KEY:
+        required: false
+        description: >
+          The Refresh Bot private key, needed only with `private-dep-owner`. It is
+          passed as a secret and used to mint the token INSIDE this workflow, so the
+          token itself never crosses a workflow boundary. A caller cannot hand a
+          minted token to a reusable workflow safely: that would have to travel as a
+          job output, and job outputs are not redacted.
       COMPOSER_AUTH_TOKEN:
         required: false
         description: >
@@ -149,12 +169,41 @@ jobs:
           composer require --dev --no-update --no-interaction \
             "illuminate/contracts:${{ matrix.laravel }}"
 
+      # GITHUB_TOKEN is scoped to the repository the workflow runs in, so a private
+      # sibling package -- especially one in another org -- fails the clone with
+      # "Invalid username or token", an auth error that reads like a dependency
+      # problem. An app installation token for the owner that holds it is the fix.
+      - name: Mint a token for the private sibling
+        id: sibling-token
+        if: inputs.private-dep-owner != ''
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.REFRESH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.REFRESH_APP_PRIVATE_KEY }}
+          owner: ${{ inputs.private-dep-owner }}
+          permission-contents: read
+
+      # A caller that DECLARED a private dependency gets a hard failure here rather
+      # than the GITHUB_TOKEN fallback, which would surface eight steps later as a
+      # clone error. Undeclared callers keep the fallback, which is correct for them.
+      - name: Require that token
+        if: inputs.private-dep-owner != ''
+        shell: bash
+        run: |
+          if [ -z "${TOKEN}" ]; then
+            echo "::error::private-dep-owner is '${{ inputs.private-dep-owner }}' but no app token was minted. Pass REFRESH_APP_PRIVATE_KEY and set the REFRESH_APP_CLIENT_ID variable. On GitHub Free a PRIVATE caller cannot read org-level secrets or variables and needs repository copies of both."
+            exit 1
+          fi
+        env:
+          TOKEN: ${{ steps.sibling-token.outputs.token }}
+
       - name: Install dependencies (${{ matrix.stability }})
         shell: bash
         env:
-          # Only consulted for a repository composer must clone. The fallback
-          # keeps every public-only package resolving exactly as before.
-          COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ secrets.COMPOSER_AUTH_TOKEN || secrets.GITHUB_TOKEN }}"}}'
+          # Precedence: the token minted for a declared private owner, then a token
+          # the caller supplied explicitly, then the built-in one. The last keeps
+          # every public-only package resolving exactly as before.
+          COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ steps.sibling-token.outputs.token || secrets.COMPOSER_AUTH_TOKEN || secrets.GITHUB_TOKEN }}"}}'
         # --prefer-stable alongside --prefer-lowest on purpose: bare
         # --prefer-lowest resolves the lowest UNSTABLE release of every
         # dependency, which fails for reasons unrelated to this package.
