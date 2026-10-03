@@ -1,0 +1,57 @@
+name: Audit private default branches
+
+# Private repositories cannot carry a branch ruleset on the free plan, so
+# "changes reach the default branch through a pull request" is held by practice
+# there. This checks the practice weekly, across both orgs, and fails naming
+# any commit that reached a default branch without a merged pull request.
+# The logic and its reasoning are in scripts/audit-private-default-branches.sh.
+#
+# It reads other repositories, which GITHUB_TOKEN cannot, so it mints a
+# read-only Refresh Bot token per org. The app key is an org secret; this
+# repository is public, so it can read it.
+
+on:
+  schedule:
+    - cron: "41 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: How many days of history to audit
+        default: "14"
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: audit (${{ matrix.org }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        org: [laranail, simtabi]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Mint a read-only token for ${{ matrix.org }}
+        id: token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.REFRESH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.REFRESH_APP_PRIVATE_KEY }}
+          owner: ${{ matrix.org }}
+          permission-contents: read
+          permission-pull-requests: read
+      - name: Every default-branch commit came through a pull request
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          ORG: ${{ matrix.org }}
+          DAYS: ${{ inputs.days || '14' }}
+        run: bash scripts/audit-private-default-branches.sh "$ORG" "$DAYS"

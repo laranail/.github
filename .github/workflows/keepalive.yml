@@ -1,0 +1,73 @@
+name: Keepalive (reusable)
+
+# GitHub disables a public repository's scheduled workflows after 60 days with
+# no push, silently: the CodeQL scan or the weekly macOS run simply stops, and
+# nothing reports it. Three were found that way in 2026-09 (release-kit and
+# ai-config-kit CodeQL, sis-sdk Security), all on repositories that were done
+# rather than abandoned -- exactly the repositories whose scheduled scans matter.
+#
+# Re-enabling a workflow through the API resets that clock, so a caller runs
+# this weekly from its own schedule and every workflow in the repository --
+# the caller included -- stays enabled. No dummy commits: history is not
+# touched, and the only permission used is `actions: write` on the caller's own
+# GITHUB_TOKEN.
+#
+# Two states are deliberately left alone: `disabled_manually`, because a human
+# turned that workflow off and re-enabling it would overrule them, and dynamic
+# workflows (Dependabot, default CodeQL setup), which GitHub manages itself.
+#
+# Caller:
+#
+#   on:
+#     schedule:
+#       - cron: "17 5 * * 1"
+#     workflow_dispatch:
+#   permissions: {}
+#   jobs:
+#     keepalive:
+#       permissions:
+#         actions: write
+#       uses: laranail/.github/.github/workflows/keepalive.yml@main
+
+on:
+  workflow_call:
+
+permissions: {}
+
+jobs:
+  keepalive:
+    name: keepalive
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Re-enable this repository's workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/$REPO/actions/workflows?per_page=100" \
+            --jq '.workflows[] | [.id, .state, .path] | @tsv' > "$RUNNER_TEMP/workflows.tsv"
+
+          total=$(wc -l < "$RUNNER_TEMP/workflows.tsv")
+          # This job is itself a workflow of this repository, so an empty list
+          # means the listing failed, not that there is nothing to do.
+          [ "$total" -gt 0 ] || { echo "::error::listed no workflows for $REPO"; exit 1; }
+
+          enabled=0
+          while IFS=$'\t' read -r id state path; do
+            case "$path" in .github/workflows/*) ;; *) echo "skip  $path (dynamic, GitHub-managed)"; continue ;; esac
+            case "$state" in
+              active|disabled_inactivity)
+                gh api -X PUT "repos/$REPO/actions/workflows/$id/enable" >/dev/null
+                enabled=$((enabled + 1))
+                echo "keep  $path (was $state)" ;;
+              *)
+                echo "skip  $path ($state)" ;;
+            esac
+          done < "$RUNNER_TEMP/workflows.tsv"
+
+          echo "re-enabled $enabled of $total workflow(s)" | tee -a "$GITHUB_STEP_SUMMARY"
+          [ "$enabled" -gt 0 ] || { echo "::error::re-enabled nothing; this workflow should at least have kept itself alive"; exit 1; }
