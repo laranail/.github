@@ -29,6 +29,11 @@ while read -r name branch; do
     [ -n "$sha" ] || continue
     checked_commits=$((checked_commits + 1))
     merged=$(gh api "repos/$org/$name/commits/$sha/pulls" --jq '[.[] | select(.merged_at != null)] | length')
+    # A repository's root commit cannot arrive through a pull request -- there is no base to open
+    # one against -- so the "Initial release" of a new repository is not a direct push.
+    if [ "$merged" = 0 ] && [ "$(gh api "repos/$org/$name/commits/$sha" --jq '.parents | length')" = 0 ]; then
+      continue
+    fi
     if [ "$merged" = 0 ]; then
       offenders=$((offenders + 1))
       subject=$(gh api "repos/$org/$name/commits/$sha" --jq '.commit.message | split("\n")[0]')
