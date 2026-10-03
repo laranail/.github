@@ -1,4 +1,4 @@
-# Contributing to Simtabi open source
+# Contributing to laranail open source
 
 Thank you for considering a contribution. This is the organization-wide guide;
 individual repositories may add project-specific instructions in their own
