@@ -51,7 +51,7 @@ jobs:
         run: composer install --no-interaction --no-progress --prefer-dist
 
       - name: Run OSV-Scanner
-        uses: google/osv-scanner-action/osv-scanner-action@c51854704019a247608d928f370c98740469d4b5 # v2.3.5
+        uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
         with:
           # OSV-scanner v2 changed both flags:
           # - `--skip-git` removed (binary auto-ignores .git/).
