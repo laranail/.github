@@ -1,0 +1,34 @@
+name: Audit tests
+
+# Runs scripts/tests/ against a fake `gh`, so a change to the default-branch
+# audit or its exemption list is checked before it lands. Needs no token.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: audit script tests
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: shellcheck
+        run: shellcheck scripts/*.sh scripts/tests/*.sh
+      - name: Audit script tests
+        run: |
+          shopt -s nullglob
+          tests=(scripts/tests/*.test.sh)
+          [ "${#tests[@]}" -gt 0 ] || { echo "::error::no tests found under scripts/tests"; exit 1; }
+          for t in "${tests[@]}"; do bash "$t"; done
