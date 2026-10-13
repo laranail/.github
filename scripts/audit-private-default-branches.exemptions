@@ -1,0 +1,19 @@
+# Exemptions for scripts/audit-private-default-branches.sh
+#
+# One commit per line, four fields separated by whitespace, the reason last:
+#
+#   <org>/<repo>  <full 40-character sha>  <date measured, YYYY-MM-DD>  <reason>
+#
+# Each entry names exactly one commit in exactly one repository. There are no
+# patterns, no repository-wide entries and no abbreviated SHAs: the script
+# refuses a line that is not in this shape, so an entry is a ceiling on what it
+# covers rather than a licence for whatever comes next. A new direct push is
+# not on this list and still fails the audit.
+#
+# An entry stops matching once its commit is older than the audit window; the
+# run then prints a notice naming it, and it can be removed in a later pull
+# request.
+
+laranail/tayari-ui          a472a35607ba702d3996f11378b79a103d00ea89  2026-10-12  Pushed straight to main while the repository was first published on 2026-10-07, before its pull-request flow existed. Flagged by run 38274402911.
+simtabi/auth-token-manager  67a3dd277ce1ae366992b5159fbb051fc36bc02d  2026-10-12  Pushed straight to main while the repository was first published on 2026-10-07, before its pull-request flow existed. Flagged by run 38274402911.
+simtabi/ai-cleanup-kit      9da66d34b879cf0063739840b255275bcda5fe2e  2026-10-12  Pushed straight to master while the repository was first published on 2026-10-07, before its pull-request flow existed. Flagged by run 38274402911.
