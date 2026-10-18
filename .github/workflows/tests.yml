@@ -208,7 +208,30 @@ jobs:
         # --prefer-lowest resolves the lowest UNSTABLE release of every
         # dependency, which fails for reasons unrelated to this package.
         # Composer accepts the flag twice, so no branch is needed.
-        run: composer update --${{ matrix.stability }} --prefer-stable --prefer-dist --no-interaction --no-progress
+        #
+        # Retried only when GitHub refuses the token for a moment ("Could not
+        # authenticate against github.com") or rate-limits it. Every laranail/*
+        # dependency resolves through a VCS repository on github.com, so each
+        # install calls the GitHub API; on 2026-10-18 five jobs of one
+        # laranail/db-console run failed at the same second this way while their
+        # siblings passed. Any other failure fails at once.
+        run: |
+          set -o pipefail
+          log="$RUNNER_TEMP/composer-update.log"
+          for attempt in 1 2 3; do
+            if composer update --${{ matrix.stability }} --prefer-stable --prefer-dist --no-interaction --no-progress 2>&1 | tee "$log"; then
+              exit 0
+            fi
+            if ! grep -qE 'Could not authenticate against github.com|API limit|rate limit exceeded' "$log"; then
+              exit 1
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "::warning::GitHub refused the token (attempt $attempt of 3); retrying."
+              sleep $((attempt * 20))
+            fi
+          done
+          echo "::error::GitHub refused the token on all 3 attempts."
+          exit 1
 
       - name: Determine coverage upload
         id: coverage-leg
