@@ -1,0 +1,42 @@
+name: Read a private repository with its deploy key
+description: >
+  Make git (and so composer) reach ONE private GitHub repository over SSH with that repository's
+  read-only deploy key: every https://github.com/<repository> URL is rewritten to SSH, and the key is
+  the only identity offered. Nothing else changes; other repositories keep their HTTPS path.
+
+inputs:
+  repository:
+    description: owner/name of the private repository, e.g. simtabi/sis-sdk
+    required: true
+  key:
+    description: The deploy key's private half (pass a secret)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Configure git for ${{ inputs.repository }}
+      shell: bash
+      env:
+        REPOSITORY: ${{ inputs.repository }}
+        DEPLOY_KEY: ${{ inputs.key }}
+      run: |
+        if [ -z "$DEPLOY_KEY" ]; then
+          echo "::error::No deploy key given for $REPOSITORY."
+          exit 1
+        fi
+        case "$REPOSITORY" in
+          */*) ;;
+          *) echo "::error::repository must be owner/name, got '$REPOSITORY'."; exit 1 ;;
+        esac
+        dir="$RUNNER_TEMP/deploy-key"
+        mkdir -p "$dir" && chmod 700 "$dir"
+        printf '%s\n' "$DEPLOY_KEY" > "$dir/key" && chmod 600 "$dir/key"
+        # GitHub's published host key (api.github.com/meta, checked 2026-10-19): pinned, not
+        # trusted on first use.
+        echo 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' > "$dir/known_hosts"
+        git config --global core.sshCommand \
+          "ssh -i $dir/key -o IdentitiesOnly=yes -o UserKnownHostsFile=$dir/known_hosts -o StrictHostKeyChecking=yes"
+        git config --global url."git@github.com:$REPOSITORY".insteadOf "https://github.com/$REPOSITORY"
+        git ls-remote --heads "https://github.com/$REPOSITORY" >/dev/null \
+          || { echo "::error::The deploy key cannot read $REPOSITORY. Is it added to that repository?"; exit 1; }
