@@ -242,6 +242,20 @@ jobs:
         env:
           TOKEN: ${{ steps.sibling-token.outputs.token }}
 
+      # A repository with `no-api: true` is cloned over git, and composer puts the token in the URL as
+      # `<token>:x-oauth-basic`, which GitHub refuses for an app installation token ("Invalid username
+      # or token", laranail/sis-wrapper run 39279098279). Composer clones the plain URL first, so this
+      # rewrite supplies the form GitHub documents for installation tokens, `x-access-token:<token>`
+      # (traced with composer 2.10.3: git-remote-https receives the rewritten URL). API-resolved
+      # repositories never reach it.
+      - name: Let git clone ${{ inputs.private-dep-owner }} repositories with that token
+        if: inputs.private-dep-owner != '' && env.USE_DEPLOY_KEY != 'true'
+        shell: bash
+        env:
+          TOKEN: ${{ steps.sibling-token.outputs.token }}
+          OWNER: ${{ inputs.private-dep-owner }}
+        run: git config --global url."https://x-access-token:${TOKEN}@github.com/${OWNER}/".insteadOf "https://github.com/${OWNER}/"
+
       - name: Install dependencies (${{ matrix.stability }})
         shell: bash
         env:
