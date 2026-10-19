@@ -80,6 +80,24 @@ on:
           different approach and will fail loudly here rather than half-resolve.
         type: string
         default: ''
+      private-dep-repository:
+        description: >
+          owner/name of ONE private repository the package resolves through a `vcs`
+          entry, read with that repository's deploy key (secret
+          PRIVATE_DEP_DEPLOY_KEY). When the key is passed it is used instead of
+          the app token above: git reaches that repository over SSH and nothing
+          else changes. The package's composer.json must set `no-api: true` on that
+          repository and `preferred-install` `source` for it, and the install then
+          runs without --prefer-dist (dist is composer's default anyway), so the
+          per-package preference holds.
+        type: string
+        default: ''
+      actions-ref:
+        description: >
+          Ref of laranail/.github to take the deploy-key action from. Pin it to the
+          same SHA as this workflow when the caller pins.
+        type: string
+        default: main
     secrets:
       CODECOV_TOKEN:
         required: false
@@ -91,6 +109,12 @@ on:
           token itself never crosses a workflow boundary. A caller cannot hand a
           minted token to a reusable workflow safely: that would have to travel as a
           job output, and job outputs are not redacted.
+      PRIVATE_DEP_DEPLOY_KEY:
+        required: false
+        description: >
+          Read-only deploy key of `private-dep-repository`. It reaches that one
+          repository and nothing else, unlike an app key, which can mint every
+          permission its app holds.
       COMPOSER_AUTH_TOKEN:
         required: false
         description: >
@@ -106,6 +130,9 @@ jobs:
     name: PHP ${{ matrix.php }} · ${{ matrix.stability }}${{ matrix.os != 'ubuntu-latest' && format(' · {0}', matrix.os) || '' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
+    env:
+      # Whether the key is set, never the key: secrets cannot be read in a step's `if`.
+      USE_DEPLOY_KEY: ${{ inputs.private-dep-repository != '' && secrets.PRIVATE_DEP_DEPLOY_KEY != '' }}
     strategy:
       # One cell failing must not cancel the others; which cells fail is the signal.
       fail-fast: false
@@ -173,9 +200,27 @@ jobs:
       # sibling package -- especially one in another org -- fails the clone with
       # "Invalid username or token", an auth error that reads like a dependency
       # problem. An app installation token for the owner that holds it is the fix.
+      # A local `uses: ./…` in a reusable workflow resolves against the CALLER's checkout, so the
+      # action is checked out from here first (the hygiene.yml pattern).
+      - name: Check out the shared deploy-key action
+        if: env.USE_DEPLOY_KEY == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: laranail/.github
+          ref: ${{ inputs.actions-ref }}
+          path: .laranail-github
+          persist-credentials: false
+
+      - name: Read ${{ inputs.private-dep-repository }} with its deploy key
+        if: env.USE_DEPLOY_KEY == 'true'
+        uses: ./.laranail-github/.github/actions/deploy-key
+        with:
+          repository: ${{ inputs.private-dep-repository }}
+          key: ${{ secrets.PRIVATE_DEP_DEPLOY_KEY }}
+
       - name: Mint a token for the private sibling
         id: sibling-token
-        if: inputs.private-dep-owner != ''
+        if: inputs.private-dep-owner != '' && env.USE_DEPLOY_KEY != 'true'
         uses: actions/create-github-app-token@v3
         with:
           client-id: ${{ vars.REFRESH_APP_CLIENT_ID }}
@@ -187,7 +232,7 @@ jobs:
       # than the GITHUB_TOKEN fallback, which would surface eight steps later as a
       # clone error. Undeclared callers keep the fallback, which is correct for them.
       - name: Require that token
-        if: inputs.private-dep-owner != ''
+        if: inputs.private-dep-owner != '' && env.USE_DEPLOY_KEY != 'true'
         shell: bash
         run: |
           if [ -z "${TOKEN}" ]; then
@@ -196,6 +241,20 @@ jobs:
           fi
         env:
           TOKEN: ${{ steps.sibling-token.outputs.token }}
+
+      # A repository with `no-api: true` is cloned over git, and composer puts the token in the URL as
+      # `<token>:x-oauth-basic`, which GitHub refuses for an app installation token ("Invalid username
+      # or token", laranail/sis-wrapper run 39279098279). Composer clones the plain URL first, so this
+      # rewrite supplies the form GitHub documents for installation tokens, `x-access-token:<token>`
+      # (traced with composer 2.10.3: git-remote-https receives the rewritten URL). API-resolved
+      # repositories never reach it.
+      - name: Let git clone ${{ inputs.private-dep-owner }} repositories with that token
+        if: inputs.private-dep-owner != '' && env.USE_DEPLOY_KEY != 'true'
+        shell: bash
+        env:
+          TOKEN: ${{ steps.sibling-token.outputs.token }}
+          OWNER: ${{ inputs.private-dep-owner }}
+        run: git config --global url."https://x-access-token:${TOKEN}@github.com/${OWNER}/".insteadOf "https://github.com/${OWNER}/"
 
       - name: Install dependencies (${{ matrix.stability }})
         shell: bash
@@ -218,8 +277,13 @@ jobs:
         run: |
           set -o pipefail
           log="$RUNNER_TEMP/composer-update.log"
+          # --prefer-dist overrides a per-package `preferred-install: source`, which is what lets a
+          # deploy-key repository install through git (measured with composer 2.10.3: the dist
+          # download fails against the private repository, and no source fallback follows).
+          dist=--prefer-dist
+          if [ "$USE_DEPLOY_KEY" = "true" ]; then dist=; fi
           for attempt in 1 2 3; do
-            if composer update --${{ matrix.stability }} --prefer-stable --prefer-dist --no-interaction --no-progress 2>&1 | tee "$log"; then
+            if composer update --${{ matrix.stability }} --prefer-stable $dist --no-interaction --no-progress 2>&1 | tee "$log"; then
               exit 0
             fi
             if ! grep -qE 'Could not authenticate against github.com|API limit|rate limit exceeded' "$log"; then

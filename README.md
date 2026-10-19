@@ -22,6 +22,24 @@ jobs:
       laravel-versions: '["13.*"]'
 ```
 
+### A private dependency
+
+A package that resolves one private repository through a `vcs` entry reads it with that repository's
+read-only deploy key, not an app key:
+
+```yaml
+    uses: laranail/.github/.github/workflows/tests.yml@<sha>
+    with:
+      private-dep-repository: simtabi/sis-sdk
+      actions-ref: <same sha>
+    secrets:
+      PRIVATE_DEP_DEPLOY_KEY: ${{ secrets.SIS_SDK_DEPLOY_KEY }}
+```
+
+Its `composer.json` sets `"no-api": true` on that repository and `"preferred-install": {"simtabi/sis-sdk":
+"source", "*": "dist"}`. Workflows outside the reusable one use
+`.github/actions/deploy-key` directly. Without the key, `private-dep-owner` and the app token still work.
+
 ## License
 
 MIT — see each repository's license file.
