@@ -99,8 +99,6 @@ on:
         type: string
         default: main
     secrets:
-      CODECOV_TOKEN:
-        required: false
       REFRESH_APP_PRIVATE_KEY:
         required: false
         description: >
@@ -319,11 +317,3 @@ jobs:
         if: steps.coverage-leg.outputs.upload == 'true'
         shell: bash
         run: ${{ inputs.test-command }} --coverage-clover=coverage.xml
-
-      - name: Upload coverage to Codecov
-        if: steps.coverage-leg.outputs.upload == 'true' && hashFiles('coverage.xml') != ''
-        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage.xml
-          fail_ci_if_error: false
