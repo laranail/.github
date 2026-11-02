@@ -25,7 +25,7 @@ on:
         type: boolean
         default: true
       run-tag-currency:
-        description: Verify the moving tag is on the default branch.
+        description: Verify release tags are on the default branch's history, and warn when a release is due.
         type: boolean
         default: true
       run-dist-integrity:
@@ -72,11 +72,12 @@ jobs:
 
   tag-currency:
     name: Release currency
-    # Never on a pull request. This asks whether the moving v0.1.0 tag points at
-    # the default branch, and a PR that adds commits cannot satisfy that -- the
-    # tag can only move AFTER the branch lands. Running it here made every PR
-    # that touches .github/workflows/** fail a check it could not pass, which is
-    # noise that teaches people to ignore a red hygiene run.
+    # Never on a pull request: a PR that adds commits always makes a release due,
+    # and only a tag cut after it lands can answer that. Release tags are
+    # immutable, so a tag behind the default branch is a ::warning naming the
+    # next patch to cut (also in the job summary), never a red run and never
+    # advice to move a tag. A tag off the branch's history, or a branch-alias line
+    # with no tag, still fails.
     if: inputs.run-tag-currency && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -93,7 +94,7 @@ jobs:
           path: checks
           persist-credentials: false
 
-      - name: Verify the moving tag is on the default branch
+      - name: Verify release currency (immutable tags; a due release warns)
         run: bash checks/scripts/verify-tag-currency.sh "${{ github.repository }}"
         env:
           GH_TOKEN: ${{ github.token }}
