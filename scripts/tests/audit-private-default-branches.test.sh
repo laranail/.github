@@ -35,7 +35,9 @@ while [ \$# -gt 0 ]; do
   shift
 done
 case "\$path" in
-  orgs/fixture/repos*)                 echo "app main" ;;
+  orgs/fixture/repos*)                 echo "app main 5"; [ -z "\${FAKE_EXTRA_REPOS:-}" ] || echo "\$FAKE_EXTRA_REPOS" ;;
+  repos/fixture/blank/commits\?*)      echo "gh: Git Repository is empty. (HTTP 409)" >&2; exit 1 ;;
+  repos/fixture/broken/commits\?*)     echo "gh: Server Error (HTTP 502)" >&2; exit 1 ;;
   repos/fixture/app/commits\?*)        printf '%s\n' \${FAKE_COMMITS:-$merged $root $listed $unlisted} ;;
   repos/fixture/app/commits/$merged/pulls) echo 1 ;;
   repos/fixture/app/commits/*/pulls)   echo 0 ;;
@@ -83,6 +85,15 @@ FAKE_COMMITS="$merged $root" check "an entry outside the window is reported for 
 
 EXEMPTIONS=/dev/null check "with no exemptions both direct pushes fail" 1 "2 without a pull request"
 
+FAKE_COMMITS="$merged $root $listed" FAKE_EXTRA_REPOS="blank main 7" \
+  check "an empty repository answering 409 is skipped, not a crash" 0 "fixture/blank is empty (HTTP 409)"
+
+FAKE_COMMITS="$merged $root $listed" FAKE_EXTRA_REPOS="hollow main 0" \
+  check "a repository of size 0 is skipped without a commits call" 0 "fixture/hollow is empty (size 0)"
+
+FAKE_COMMITS="$merged $root $listed" FAKE_EXTRA_REPOS="broken main 7" \
+  check "any other API error still fails the run" 1 "could not list commits"
+
 refuse() { # refuse <what> <line>
   printf '%s\n' "$2" > "$work/bad"
   EXEMPTIONS=$work/bad check "an exemption with $1 is refused" 2 "expected '<org>/<repo>"
@@ -94,4 +105,4 @@ refuse "no reason"             "fixture/app  $listed  2026-10-12"
 refuse "no measured date"      "fixture/app  $listed  yesterday  Reason."
 
 echo "$pass passed, $fail failed"
-[ "$fail" -eq 0 ] && [ "$pass" -ge 10 ]
+[ "$fail" -eq 0 ] && [ "$pass" -ge 13 ]

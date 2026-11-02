@@ -47,12 +47,30 @@ matched=""
 since=$(date -u -d "-${days} days" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-"${days}"d +%Y-%m-%dT%H:%M:%SZ)
 
 repos=$(gh api --paginate "orgs/$org/repos?type=private&per_page=100" \
-          --jq '.[] | select(.archived | not) | "\(.name) \(.default_branch)"')
+          --jq '.[] | select(.archived | not) | "\(.name) \(.default_branch) \(.size)"')
 
 checked_repos=0 checked_commits=0 offenders=0
-while read -r name branch; do
+err=$(mktemp "${TMPDIR:-/tmp}/audit-gh.XXXXXX")
+trap 'rm -f "$err"' EXIT
+while read -r name branch size; do
   [ -n "$name" ] || continue
   checked_repos=$((checked_repos + 1))
+  # An empty repository has no default branch to audit, and GitHub answers its
+  # commits call with HTTP 409. That once crashed the whole run ("unexpected end
+  # of JSON input"), so every org after it went unaudited. Skip it, and say so.
+  if [ "${size:-}" = 0 ]; then
+    echo "::notice::$org/$name is empty (size 0); nothing to audit"
+    continue
+  fi
+  if ! commits=$(gh api --paginate "repos/$org/$name/commits?sha=$branch&since=$since&per_page=100" --jq '.[].sha' 2>"$err"); then
+    if grep -q 'HTTP 409' "$err"; then
+      echo "::notice::$org/$name is empty (HTTP 409); nothing to audit"
+      continue
+    fi
+    cat "$err" >&2
+    echo "::error::$org/$name: could not list commits on $branch"
+    exit 1
+  fi
   while read -r sha; do
     [ -n "$sha" ] || continue
     checked_commits=$((checked_commits + 1))
@@ -72,7 +90,7 @@ while read -r name branch; do
       subject=$(gh api "repos/$org/$name/commits/$sha" --jq '.commit.message | split("\n")[0]')
       echo "::error title=Direct push to $org/$name::$sha reached $branch without a merged pull request: $subject"
     fi
-  done < <(gh api --paginate "repos/$org/$name/commits?sha=$branch&since=$since&per_page=100" --jq '.[].sha')
+  done <<< "$commits"
 done <<< "$repos"
 
 # An entry whose commit has left the window covers nothing any more. Say so, so
