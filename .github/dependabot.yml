@@ -1,28 +1,21 @@
 version: 2
 
 updates:
-  # Reusable-workflow self-maintenance.
+  # Reusable-workflow self-maintenance. The deploy-key composite action
+  # uses no actions, so this one entry covers every `uses:` in the repo;
+  # a second github-actions entry at `/` would scan the same workflows
+  # and open duplicate PRs.
   - package-ecosystem: github-actions
     directory: /.github/workflows
     schedule:
       interval: weekly
       day: monday
       time: '06:00'
-      timezone: UTC
+      timezone: America/New_York
     groups:
       actions-minor-and-patch:
+        patterns: ['*']
         update-types: [minor, patch]
     commit-message:
       prefix: 'chore(actions)'
       include: scope
-  - package-ecosystem: github-actions
-    directory: /
-    schedule:
-      interval: weekly
-      day: monday
-      time: "06:00"
-      timezone: America/New_York
-    groups:
-      minor-and-patch:
-        patterns: ["*"]
-        update-types: [minor, patch]
