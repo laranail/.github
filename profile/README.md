@@ -85,8 +85,8 @@ lives in each repository's `docs/` directory — start with
 ## About Simtabi
 
 laranail is built and maintained by the team at [Simtabi](https://simtabi.com),
-a software design agency and design & branding studio operating across New
-York, Delaware, and North Carolina, USA. Whenever we build something reusable,
+a software design agency and design & branding studio operating in Delaware
+and North Carolina and serving clients nationwide, USA. Whenever we build something reusable,
 we share it — you'll find it
 across [@laranail](https://github.com/laranail) and
 [@simtabi](https://github.com/simtabi).
