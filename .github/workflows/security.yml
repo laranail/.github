@@ -58,9 +58,16 @@ jobs:
       - name: Set up PHP
         # OSV-Scanner reads `composer.lock`. Repos in this suite don't commit lock files
         # (libraries), so the next step generates one before scanning.
+        #
+        # These MUST be the inputs, not literals. A caller whose composer.json floors PHP above the
+        # literal gets "Your requirements could not be resolved to an installable set of packages"
+        # from composer -- an error naming neither PHP nor a version, in a job called "OSV.dev scan",
+        # so it reads as a scanner fault. laranail/chrono (php ^8.5) failed exactly this way against
+        # a hardcoded '8.4', while callers on ^8.4.1 || ^8.5 passed and hid it.
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
-          php-version: '8.4'
+          php-version: ${{ inputs.php-version }}
+          extensions: ${{ inputs.php-extensions }}
           tools: composer:v2
 
       - name: composer install
