@@ -10,11 +10,14 @@ on:
         type: string
         default: 'mbstring, xml, ctype, iconv, intl'
     secrets:
-      GITGUARDIAN_API_KEY:
+      OP_SERVICE_ACCOUNT_TOKEN:
         description: >-
-          GitGuardian API key. Optional: without it the scan step is skipped with a warning rather
-          than failing, so adding this job cannot turn every caller red before the key exists.
-          A caller must pass `secrets: inherit` (or the key by name) for it to arrive at all.
+          1Password service-account token, scoped to the CI vault. The one credential GitHub holds:
+          every other secret this workflow needs is named by an `op://` reference below and fetched
+          at run time, so rotating one is an edit in 1Password and nothing here changes.
+          Optional -- without it the scan is skipped with a warning rather than failing, so adding a
+          job that needs a credential cannot redden every caller before the credential exists.
+          A caller must pass `secrets: inherit` for it to arrive at all.
         required: false
 
 jobs:
@@ -83,17 +86,29 @@ jobs:
       # Failing closed is right for a FINDING -- a leaked credential must stop the build -- and
       # wrong for a missing setting, which would paint every caller red for a reason none of them
       # introduced. Same shape as simtabi/repo-templates' Refresh Bot credentials gate.
-      - name: Is the scanner configured?
+      - name: Is 1Password reachable?
         id: creds
         env:
-          HAS_KEY: ${{ secrets.GITGUARDIAN_API_KEY != '' }}
+          HAS_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN != '' }}
         run: |
-          if [ "${HAS_KEY}" = true ]; then
+          if [ "${HAS_TOKEN}" = true ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning title=ggshield not configured::No GITGUARDIAN_API_KEY reached this workflow, so no secret scan ran. Add it as an org secret and have the caller pass secrets: inherit."
+            echo "::warning title=secret scan skipped::No OP_SERVICE_ACCOUNT_TOKEN reached this workflow, so ggshield did not run. Set it as an org secret and have the caller pass secrets: inherit."
             echo "ready=false" >> "$GITHUB_OUTPUT"
           fi
+
+      # The op:// reference is a location, not a value, so it belongs here in plain text: it
+      # documents what the job needs, and rotating the credential behind it changes nothing in
+      # this file. GITGUARDIAN_API_KEY is exported into the job's environment for the next step.
+      - name: Load secrets from 1Password
+        if: steps.creds.outputs.ready == 'true'
+        uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          GITGUARDIAN_API_KEY: op://CI/GitGuardian/credential
 
       - name: ggshield secret scan
         if: steps.creds.outputs.ready == 'true'
@@ -103,4 +118,3 @@ jobs:
           GITHUB_PUSH_BASE_SHA: ${{ github.event.base }}
           GITHUB_PULL_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           GITHUB_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
