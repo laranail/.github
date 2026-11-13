@@ -88,16 +88,26 @@ jobs:
             exit 1
           fi
 
-      # Composer clones the plain https URL and offers the token as `<token>:x-oauth-basic`, which
-      # GitHub REFUSES for an app installation token. This rewrite supplies the documented form,
-      # `x-access-token:<token>`, so the clone is attempted correctly the first time.
-      - name: Let git clone that owner's private repositories
+      # Composer needs the token on BOTH paths it can take, and which one it takes is not ours to
+      # choose -- a repository's own composer.json decides via `no-api`.
+      #
+      #   dist (the default): it downloads https://api.github.com/repos/<o>/<r>/zipball/<sha>. For a
+      #     private repository that answers 404 without credentials, so COMPOSER_AUTH's github-oauth
+      #     entry is what makes it work. A 404 reads as "no such release", not "not authorised".
+      #   source (`no-api`): it clones the plain https URL and offers the token as
+      #     `<token>:x-oauth-basic`, which GitHub REFUSES for an app installation token. The
+      #     url.insteadOf rewrite supplies the documented `x-access-token:<token>` form instead.
+      #
+      # Setting only one of the two fixes only half the callers, and the half it misses fails with
+      # an error that names neither auth nor the token.
+      - name: Let composer and git reach that owner's private repositories
         if: inputs.private-dependency-owner != ''
         env:
           TOKEN: ${{ steps.dep-token.outputs.token }}
           OWNER: ${{ inputs.private-dependency-owner }}
         run: |
           git config --global url."https://x-access-token:${TOKEN}@github.com/${OWNER}".insteadOf "https://github.com/${OWNER}"
+          printf 'COMPOSER_AUTH={"github-oauth":{"github.com":"%s"}}\n' "${TOKEN}" >> "${GITHUB_ENV}"
 
       - name: Install dependencies
         # `composer install` will create composer.lock for libraries that
@@ -156,16 +166,26 @@ jobs:
             exit 1
           fi
 
-      # Composer clones the plain https URL and offers the token as `<token>:x-oauth-basic`, which
-      # GitHub REFUSES for an app installation token. This rewrite supplies the documented form,
-      # `x-access-token:<token>`, so the clone is attempted correctly the first time.
-      - name: Let git clone that owner's private repositories
+      # Composer needs the token on BOTH paths it can take, and which one it takes is not ours to
+      # choose -- a repository's own composer.json decides via `no-api`.
+      #
+      #   dist (the default): it downloads https://api.github.com/repos/<o>/<r>/zipball/<sha>. For a
+      #     private repository that answers 404 without credentials, so COMPOSER_AUTH's github-oauth
+      #     entry is what makes it work. A 404 reads as "no such release", not "not authorised".
+      #   source (`no-api`): it clones the plain https URL and offers the token as
+      #     `<token>:x-oauth-basic`, which GitHub REFUSES for an app installation token. The
+      #     url.insteadOf rewrite supplies the documented `x-access-token:<token>` form instead.
+      #
+      # Setting only one of the two fixes only half the callers, and the half it misses fails with
+      # an error that names neither auth nor the token.
+      - name: Let composer and git reach that owner's private repositories
         if: inputs.private-dependency-owner != ''
         env:
           TOKEN: ${{ steps.dep-token.outputs.token }}
           OWNER: ${{ inputs.private-dependency-owner }}
         run: |
           git config --global url."https://x-access-token:${TOKEN}@github.com/${OWNER}".insteadOf "https://github.com/${OWNER}"
+          printf 'COMPOSER_AUTH={"github-oauth":{"github.com":"%s"}}\n' "${TOKEN}" >> "${GITHUB_ENV}"
 
       - name: composer install
         run: composer install --no-interaction --no-progress --prefer-dist
