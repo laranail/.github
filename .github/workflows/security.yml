@@ -9,6 +9,20 @@ on:
       php-extensions:
         type: string
         default: 'mbstring, xml, ctype, iconv, intl'
+      private-dependency-owner:
+        description: >-
+          The GitHub owner holding private repositories this package requires through a `vcs`
+          repository -- `simtabi`, say. Leave empty when every dependency is publicly resolvable,
+          which is the common case. Setting it turns on the credential block below, and a caller
+          that sets it without supplying the key fails loudly rather than clone-failing later.
+        type: string
+        default: ''
+      private-dependency-repos:
+        description: >-
+          Optional comma-separated repository names under that owner, to narrow the installation
+          token. Empty means every repository the app can see there.
+        type: string
+        default: ''
     secrets:
       OP_SERVICE_ACCOUNT_TOKEN:
         description: >-
@@ -18,6 +32,13 @@ on:
           Optional -- without it the scan is skipped with a warning rather than failing, so adding a
           job that needs a credential cannot redden every caller before the credential exists.
           A caller must pass `secrets: inherit` for it to arrive at all.
+        required: false
+      REFRESH_APP_PRIVATE_KEY:
+        description: >-
+          Private key of the GitHub App installed on `private-dependency-owner`, used to mint a
+          per-run installation token so composer can clone that owner's private repositories.
+          Nothing long-lived is stored. Required only when `private-dependency-owner` is set; the
+          client id comes from the caller's `vars.REFRESH_APP_CLIENT_ID`.
         required: false
 
 # Least privilege. Without this the jobs inherit the calling repository's default token scope,
@@ -39,6 +60,44 @@ jobs:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.php-extensions }}
           tools: composer:v2
+
+      # A package may require a PRIVATE repository in ANOTHER owner through a `vcs` repository.
+      # A workflow's GITHUB_TOKEN is scoped to the CALLING repository, so composer's clone fails
+      # with "Invalid username or token" -- an auth error that reads like a dependency problem, six
+      # steps away from its cause. laranail/sis-wrapper hit exactly this against simtabi/sis-sdk.
+      - name: Mint a token for private dependencies
+        id: dep-token
+        if: inputs.private-dependency-owner != ''
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.REFRESH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.REFRESH_APP_PRIVATE_KEY }}
+          owner: ${{ inputs.private-dependency-owner }}
+          repositories: ${{ inputs.private-dependency-repos }}
+          permission-contents: read
+
+      # Fail here, loudly, rather than let composer fall through to GITHUB_TOKEN and report a
+      # confusing clone failure later. A missing credential is a configuration fault and says so.
+      - name: Require that token
+        if: inputs.private-dependency-owner != ''
+        env:
+          TOKEN: ${{ steps.dep-token.outputs.token }}
+        run: |
+          if [ -z "${TOKEN}" ]; then
+            echo "::error title=no app token::private-dependency-owner is set to '${{ inputs.private-dependency-owner }}' but no installation token was minted. The caller needs vars.REFRESH_APP_CLIENT_ID and secrets.REFRESH_APP_PRIVATE_KEY, and must pass secrets: inherit. A PRIVATE repository on GitHub Free cannot read org-level values, so it needs repository copies."
+            exit 1
+          fi
+
+      # Composer clones the plain https URL and offers the token as `<token>:x-oauth-basic`, which
+      # GitHub REFUSES for an app installation token. This rewrite supplies the documented form,
+      # `x-access-token:<token>`, so the clone is attempted correctly the first time.
+      - name: Let git clone that owner's private repositories
+        if: inputs.private-dependency-owner != ''
+        env:
+          TOKEN: ${{ steps.dep-token.outputs.token }}
+          OWNER: ${{ inputs.private-dependency-owner }}
+        run: |
+          git config --global url."https://x-access-token:${TOKEN}@github.com/${OWNER}".insteadOf "https://github.com/${OWNER}"
 
       - name: Install dependencies
         # `composer install` will create composer.lock for libraries that
@@ -69,6 +128,44 @@ jobs:
           php-version: ${{ inputs.php-version }}
           extensions: ${{ inputs.php-extensions }}
           tools: composer:v2
+
+      # A package may require a PRIVATE repository in ANOTHER owner through a `vcs` repository.
+      # A workflow's GITHUB_TOKEN is scoped to the CALLING repository, so composer's clone fails
+      # with "Invalid username or token" -- an auth error that reads like a dependency problem, six
+      # steps away from its cause. laranail/sis-wrapper hit exactly this against simtabi/sis-sdk.
+      - name: Mint a token for private dependencies
+        id: dep-token
+        if: inputs.private-dependency-owner != ''
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.REFRESH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.REFRESH_APP_PRIVATE_KEY }}
+          owner: ${{ inputs.private-dependency-owner }}
+          repositories: ${{ inputs.private-dependency-repos }}
+          permission-contents: read
+
+      # Fail here, loudly, rather than let composer fall through to GITHUB_TOKEN and report a
+      # confusing clone failure later. A missing credential is a configuration fault and says so.
+      - name: Require that token
+        if: inputs.private-dependency-owner != ''
+        env:
+          TOKEN: ${{ steps.dep-token.outputs.token }}
+        run: |
+          if [ -z "${TOKEN}" ]; then
+            echo "::error title=no app token::private-dependency-owner is set to '${{ inputs.private-dependency-owner }}' but no installation token was minted. The caller needs vars.REFRESH_APP_CLIENT_ID and secrets.REFRESH_APP_PRIVATE_KEY, and must pass secrets: inherit. A PRIVATE repository on GitHub Free cannot read org-level values, so it needs repository copies."
+            exit 1
+          fi
+
+      # Composer clones the plain https URL and offers the token as `<token>:x-oauth-basic`, which
+      # GitHub REFUSES for an app installation token. This rewrite supplies the documented form,
+      # `x-access-token:<token>`, so the clone is attempted correctly the first time.
+      - name: Let git clone that owner's private repositories
+        if: inputs.private-dependency-owner != ''
+        env:
+          TOKEN: ${{ steps.dep-token.outputs.token }}
+          OWNER: ${{ inputs.private-dependency-owner }}
+        run: |
+          git config --global url."https://x-access-token:${TOKEN}@github.com/${OWNER}".insteadOf "https://github.com/${OWNER}"
 
       - name: composer install
         run: composer install --no-interaction --no-progress --prefer-dist
