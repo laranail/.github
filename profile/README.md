@@ -74,7 +74,7 @@ A minute from install to a scaffolded, health-checked package. Documentation
 lives in each repository's `docs/` directory — start with
 [`package-tools/docs`](https://github.com/laranail/package-tools/tree/main/docs).
 
-## Need a hand?
+## Get in touch
 
 - Questions and ideas: open an issue on the package's repository.
 - Docs are never finished — pull requests are welcome on any repository's
