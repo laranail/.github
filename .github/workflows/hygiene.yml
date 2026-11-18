@@ -12,6 +12,14 @@ name: Hygiene (reusable)
 # package tests -- they need `gh` and a token, both of which every runner
 # already has. Requiring an install here would add a dependency, a bootstrap
 # problem for package-tools checking itself, and minutes to 37 repositories.
+#
+# `release-publish` is the odd one out: most repositories pass it by finding
+# NOTHING, because they create and update their release with
+# `softprops/action-gh-release`, which publishes an existing draft on its own.
+# Only a hand-rolled `gh release edit` can leave one as a draft. A check whose
+# clean answer is an empty result can lie by simply stopping matching, so that
+# script drives its own matcher against built-in controls on every invocation
+# and refuses to report anything when one of them misbehaves.
 
 on:
   workflow_call:
@@ -30,6 +38,10 @@ on:
         default: true
       run-dist-integrity:
         description: Verify every path composer.json references survives the archive.
+        type: boolean
+        default: true
+      run-release-publish:
+        description: Verify no workflow can leave a GitHub release sitting as a draft.
         type: boolean
         default: true
       php-version:
@@ -69,6 +81,34 @@ jobs:
         run: python3 checks/scripts/verify-action-pins.py "${GITHUB_WORKSPACE}/repo"
         env:
           GH_TOKEN: ${{ github.token }}
+
+  release-publish:
+    name: Release publishing
+    if: inputs.run-release-publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out the calling repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: repo
+          persist-credentials: false
+
+      - name: Check out the shared checks
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: laranail/package-tools
+          ref: ${{ inputs.checks-ref }}
+          path: checks
+          persist-credentials: false
+
+      # The path argument, for the same reason as action-pins above: without it the
+      # script resolves its target from its own __file__ and would check
+      # package-tools' own workflows rather than the caller's -- silently passing.
+      # No token either, unlike the other two jobs: this one is a text scan.
+      - name: No workflow can leave a release as a draft
+        run: python3 checks/scripts/verify-release-publish.py "${GITHUB_WORKSPACE}/repo"
 
   tag-currency:
     name: Release currency

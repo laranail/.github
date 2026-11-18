@@ -4,7 +4,13 @@ name: Audit tests
 # audit or its exemption list is checked before it lands. Needs no token.
 
 on:
+  # `ready_for_review` is not one of pull_request's default types (opened,
+  # synchronize, reopened), and the job below skips a draft. Without it a pull
+  # request opened as a draft never gets this check at all: marking it ready
+  # re-triggers nothing, so the skipped run stands and the PR merges unchecked.
+  # Measured on #23, which was opened as a draft deliberately.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
